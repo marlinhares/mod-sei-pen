@@ -5,7 +5,13 @@ class PaginaLogin extends PaginaTeste
     public function __construct($test)
     {
 	    parent::__construct($test);
-	    sleep(30);
+
+	$this->test->waitUntil(function($testCase) {
+	    $this->usuarioInput = $test->byId('txtUsuario');	
+	    echo 'a';
+            return true;
+        }, 30);
+	
         $this->usuarioInput = $test->byId('txtUsuario');
         $this->passwordInput = $test->byId('pwdSenha');
         $this->loginButton = $test->byId('sbmLogin');
