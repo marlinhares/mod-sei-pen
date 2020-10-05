@@ -49,7 +49,7 @@ class CenarioBaseTestCase extends Selenium2TestCase
         $this->paginaControleProcesso = new PaginaControleProcesso($this);
         $this->paginaIncluirDocumento = new PaginaIncluirDocumento($this);
         $this->paginaEditarProcesso = new PaginaEditarProcesso($this);
-        $this->currentWindow()->maximize();
+        //$this->currentWindow()->maximize();
     }
 
     public static function setUpBeforeClass(): void
@@ -416,7 +416,7 @@ class CenarioBaseTestCase extends Selenium2TestCase
             "TIPO_DOCUMENTO" => $contextoProducao['TIPO_DOCUMENTO'],
             "DATA_ELABORACAO" => '01/01/2017',
             "DESCRICAO" => str_repeat(util::random_string(9) . ' ', 10),
-            "OBSERVACOES" => util::random_string(500),
+            "OBSERVACOES" => util::random_string(250),
             "INTERESSADOS" => str_repeat(util::random_string(9) . ' ', 25),
             "ORDEM_DOCUMENTO_REFERENCIADO" => $ordemDocumentoReferenciado,
             "RESTRICAO" => PaginaIniciarProcesso::STA_NIVEL_ACESSO_PUBLICO,
