@@ -1,48 +1,72 @@
 <?php
 
-class TramiteProcessoRestritoHipotesePadraoTest extends CenarioBaseTestCase
+/**
+ * Testes de trâmite de processos contendo um documento cancelado
+ *
+ * Este mesmo documento deve ser recebido e assinalado com cancelado no destinatário e
+ * a devolução do mesmo processo não deve ser impactado pela inserção de outros documentos
+ */
+class TramiteProcessoContendoDocumentoCanceladoSemTamanhoTest extends CenarioBaseTestCase
 {
     public static $remetente;
     public static $destinatario;
     public static $processoTeste;
-    public static $documentoTeste;
+    public static $documentoTeste1;
+    public static $documentoTeste2;
+    public static $documentoTeste3;
+    public static $documentoTeste4;
     public static $protocoloTeste;
 
     /**
-     * Teste de trâmite externo de processo com restrição de acesso e hipótese legal não mapeada, mas com hipótese padrão definida
+     * Teste inicial de trâmite de um processo contendo um documento cancelado
      *
      * @group envio
      *
      * @return void
      */
-    public function test_tramitar_processo_restrito_hipotese_nao_mapeada()
+    public function test_tramitar_processo_contendo_documento_cancelado()
     {
-        // Configuração do dados para teste do cenário
         self::$remetente = $this->definirContextoTeste(CONTEXTO_ORGAO_A);
         self::$destinatario = $this->definirContextoTeste(CONTEXTO_ORGAO_B);
-        self::$processoTeste = $this->gerarDadosProcessoTeste(self::$remetente);
-        self::$documentoTeste = $this->gerarDadosDocumentoInternoTeste(self::$remetente);
 
-        // Configuração de processo restrito
-        self::$processoTeste["RESTRICAO"] = PaginaIniciarProcesso::STA_NIVEL_ACESSO_RESTRITO;
-        self::$processoTeste["HIPOTESE_LEGAL"] = self::$remetente["HIPOTESE_RESTRICAO_NAO_MAPEADO"];
+        // Definição de dados de teste do processo principal
+        self::$processoTeste = $this->gerarDadosProcessoTeste(self::$remetente);
+        
+        self::$documentoTeste1 = $this->gerarDadosDocumentoExternoTeste(self::$remetente);
+        self::$documentoTeste2 = $this->gerarDadosDocumentoInternoTeste(self::$remetente);
+        self::$documentoTeste3 = $this->gerarDadosDocumentoExternoTeste(self::$remetente);
+        
 
         // Acessar sistema do this->REMETENTE do processo
         $this->acessarSistema(self::$remetente['URL'], self::$remetente['SIGLA_UNIDADE'], self::$remetente['LOGIN'], self::$remetente['SENHA']);
 
-        // Cadastrar novo processo de teste
+        // Cadastrar novo processo de teste e incluir documentos relacionados
+        $this->paginaBase->navegarParaControleProcesso();
         self::$protocoloTeste = $this->cadastrarProcesso(self::$processoTeste);
+        $this->cadastrarDocumentoExterno(self::$documentoTeste1);
+        $this->paginaDocumento->navegarParaCancelarDocumento();
+        $this->paginaCancelarDocumento->cancelar("Motivo de teste");
 
-        // Incluir Documentos no Processo
-        $this->cadastrarDocumentoInterno(self::$documentoTeste);
+        $processo=self::$processoTeste;
+        
+        $bancoOrgaoA = new DatabaseUtils(CONTEXTO_ORGAO_A);
+        
+        $idAnexo=$bancoOrgaoA->query("SELECT an.id_anexo FROM sei.rel_protocolo_protocolo pp
+        inner join sei.protocolo p on pp.id_protocolo_1=p.id_protocolo
+        inner join sei.anexo an on an.id_protocolo=pp.id_protocolo_2
+        where p.descricao=?",array($processo['DESCRICAO']));
 
-        // Assinar documento interno criado anteriormente
-        $this->assinarDocumento(self::$remetente['ORGAO'], self::$remetente['CARGO_ASSINATURA'], self::$remetente['SENHA']);
+
+        $bancoOrgaoA->execute("delete from sei.anexo where id_anexo=?",array($idAnexo[0]['id_anexo']));
 
         // Trâmitar Externamento processo para órgão/unidade destinatária
         $this->tramitarProcessoExternamente(
-                self::$protocoloTeste, self::$destinatario['REP_ESTRUTURAS'], self::$destinatario['NOME_UNIDADE'],
-                self::$destinatario['SIGLA_UNIDADE_HIERARQUIA'], false);
+            self::$protocoloTeste,
+            self::$destinatario['REP_ESTRUTURAS'],
+            self::$destinatario['NOME_UNIDADE'],
+            self::$destinatario['SIGLA_UNIDADE_HIERARQUIA'],
+            false
+        );
     }
 
 
@@ -51,20 +75,17 @@ class TramiteProcessoRestritoHipotesePadraoTest extends CenarioBaseTestCase
      *
      * @group verificacao_envio
      *
-     * @depends test_tramitar_processo_restrito_hipotese_nao_mapeada
+     * @depends test_tramitar_processo_contendo_documento_cancelado
      *
      * @return void
      */
-    public function test_verificar_origem_processo_restrito_hipotese_nao_mapeada()
+    public function test_verificar_origem_processo()
     {
         $orgaosDiferentes = self::$remetente['URL'] != self::$destinatario['URL'];
-
         $this->acessarSistema(self::$remetente['URL'], self::$remetente['SIGLA_UNIDADE'], self::$remetente['LOGIN'], self::$remetente['SENHA']);
-
         $this->abrirProcesso(self::$protocoloTeste);
 
-        // 6 - Verificar se situação atual do processo está como bloqueado
-        $this->waitUntil(function($testCase) use (&$orgaosDiferentes) {
+        $this->waitUntil(function ($testCase) use (&$orgaosDiferentes) {
             sleep(5);
             $testCase->refresh();
             $paginaProcesso = new PaginaProcesso($testCase);
@@ -74,55 +95,47 @@ class TramiteProcessoRestritoHipotesePadraoTest extends CenarioBaseTestCase
             return true;
         }, PEN_WAIT_TIMEOUT);
 
-        // 7 - Validar se recibo de trâmite foi armazenado para o processo (envio e conclusão)
         $unidade = mb_convert_encoding(self::$destinatario['NOME_UNIDADE'], "ISO-8859-1");
         $mensagemRecibo = sprintf("Trâmite externo do Processo %s para %s", self::$protocoloTeste, $unidade);
         $this->validarRecibosTramite($mensagemRecibo, true, true);
-
-        // 8 - Validar histórico de trâmite do processo
         $this->validarHistoricoTramite(self::$destinatario['NOME_UNIDADE'], true, true);
-
-        // 9 - Verificar se processo está na lista de Processos Tramitados Externamente
         $this->validarProcessosTramitados(self::$protocoloTeste, $orgaosDiferentes);
     }
 
-
     /**
-     * Teste de verificação do correto recebimento do processo contendo apenas um documento interno (gerado)
+     * Teste de verificação do correto recebimento do processo com documento cancelado no destinatário
      *
      * @group verificacao_recebimento
      *
-     * @depends test_verificar_origem_processo_restrito_hipotese_nao_mapeada
+     * @depends test_verificar_origem_processo
      *
      * @return void
      */
-    public function test_verificar_destino_processo_restrito_hipotese_nao_mapeada()
+    public function test_verificar_destino_processo()
     {
         $strProtocoloTeste = self::$protocoloTeste;
         $orgaosDiferentes = self::$remetente['URL'] != self::$destinatario['URL'];
 
         $this->acessarSistema(self::$destinatario['URL'], self::$destinatario['SIGLA_UNIDADE'], self::$destinatario['LOGIN'], self::$destinatario['SENHA']);
-
-        // 11 - Abrir protocolo na tela de controle de processos
         $this->abrirProcesso(self::$protocoloTeste);
-        $listaDocumentos = $this->paginaProcesso->listarDocumentos();
 
-        // 12 - Validar dados  do processo
         $strTipoProcesso = utf8_encode("Tipo de processo no órgão de origem: ");
         $strTipoProcesso .= self::$processoTeste['TIPO_PROCESSO'];
-        self::$processoTeste['OBSERVACOES'] = $orgaosDiferentes ? $strTipoProcesso : null;
+        $strObservacoes = $orgaosDiferentes ? $strTipoProcesso : null;
         $this->validarDadosProcesso(
             self::$processoTeste['DESCRICAO'],
             self::$processoTeste['RESTRICAO'],
-            self::$processoTeste['OBSERVACOES'],
-            array(self::$processoTeste['INTERESSADOS']),
-            self::$destinatario["HIPOTESE_RESTRICAO_PADRAO"]);
+            $strObservacoes,
+            array(self::$processoTeste['INTERESSADOS'])
+        );
 
-        // 13 - Verificar recibos de trâmite
         $this->validarRecibosTramite("Recebimento do Processo $strProtocoloTeste", false, true);
 
-        // 14 - Validar dados do documento
-        $this->assertTrue(count($listaDocumentos) == 1);
-        $this->validarDadosDocumento($listaDocumentos[0], self::$documentoTeste, self::$destinatario);
+        // Validação dos dados do processo principal
+        $listaDocumentosProcessoPrincipal = $this->paginaProcesso->listarDocumentos();
+        $this->assertEquals(1, count($listaDocumentosProcessoPrincipal));
+        $this->validarDocumentoCancelado($listaDocumentosProcessoPrincipal[0]);
+
     }
+
 }
