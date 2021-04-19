@@ -75,7 +75,11 @@ class PaginaIncluirDocumento extends PaginaTeste
     public function observacoes($value)
     {
         $input = $this->test->byId("txaObservacoes");
-        return $input->value($value);
+        try{
+            return $input->value($value);
+        }catch(Exception $e){
+            return True;
+        }
     }
 
     public function adicionarInteressado($nomeInteressado)
