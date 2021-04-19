@@ -1,8 +1,17 @@
 ``random``
 ==========
 
-.. versionadded:: 2.7
-    The "max" argument was added in Twig 2.7.
+.. versionadded:: 1.5
+
+    The ``random`` function was added in Twig 1.5.
+
+.. versionadded:: 1.6
+
+    String and integer handling was added in Twig 1.6.
+
+.. versionadded:: 1.38
+
+    The ``max`` argument was added in Twig 1.38.
 
 The ``random`` function returns a random value depending on the supplied
 parameter type:
@@ -26,5 +35,3 @@ Arguments
 
 * ``values``: The values
 * ``max``: The max value when values is an integer
-
-.. _`mt_rand`: https://secure.php.net/mt_rand
