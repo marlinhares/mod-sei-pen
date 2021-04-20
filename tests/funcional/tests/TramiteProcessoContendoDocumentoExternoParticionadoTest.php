@@ -36,6 +36,8 @@ class TramiteProcessoContendoDocumentoExternoParticionadoTest extends CenarioBas
             $bancoOrgaoB->execute("update infra_parametro set valor = ? where nome = ?", array(70, 'SEI_TAM_MB_DOC_EXTERNO'));
             $this->cadastrarDocumentoExterno(self::$documentoTeste);
         } finally {
+            $bancoOrgaoB = null;
+            $bancoOrgaoB = new DatabaseUtils(CONTEXTO_ORGAO_B);
             $bancoOrgaoB->execute("update infra_parametro set valor = ? where nome = ?", array(50, 'SEI_TAM_MB_DOC_EXTERNO'));
         }
 
