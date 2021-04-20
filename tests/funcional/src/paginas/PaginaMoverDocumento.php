@@ -21,8 +21,8 @@ class PaginaMoverDocumento extends PaginaTeste
         $input = $this->test->byId("txtProcedimentoDestino");
         if(isset($value)) {
             $input->value($value);
-            sleep(5);
             $this->test->keys(Keys::ENTER);
+            sleep(5);
         }
 
         return $input->value();
