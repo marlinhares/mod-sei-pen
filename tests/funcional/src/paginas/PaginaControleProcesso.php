@@ -92,6 +92,7 @@ class PaginaControleProcesso extends PaginaTeste
 
     public function abrirProcesso($strProtocolo)
     {
+        sleep(5);
 		$this->test->byLinkText($strProtocolo)->click();
     }
 }
