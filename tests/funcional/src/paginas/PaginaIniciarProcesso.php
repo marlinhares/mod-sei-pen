@@ -95,12 +95,9 @@ class PaginaIniciarProcesso extends PaginaTeste
             foreach ($arrayNomeInteressado as $nomeInteressado) {
                 $input = $this->test->byId("txtInteressadoProcedimento");
                 $input->value($nomeInteressado);
-                sleep(10); 
-                
                 $this->test->keys(Keys::ENTER);
-                sleep(10);
                 $this->test->acceptAlert();
-                sleep(2);
+                sleep(10);
             }
         }
     }
