@@ -35,6 +35,8 @@ class CenarioBaseTestCase extends Selenium2TestCase
     protected $paginaAssinaturaDocumento = null;
     protected $paginaIncluirDocumento = null;
     protected $paginaProcessosTramitadosExternamente = null;
+    protected $paginaAnexarProcesso = null;
+    protected $paginaCancelarDocumento = null;
 
     public function setUpPage(): void
     {
@@ -49,11 +51,15 @@ class CenarioBaseTestCase extends Selenium2TestCase
         $this->paginaControleProcesso = new PaginaControleProcesso($this);
         $this->paginaIncluirDocumento = new PaginaIncluirDocumento($this);
         $this->paginaEditarProcesso = new PaginaEditarProcesso($this);
+        $this->paginaAnexarProcesso = new PaginaAnexarProcesso($this);
+        $this->paginaCancelarDocumento = new PaginaCancelarDocumento($this);
+        $this->paginaMoverDocumento = new PaginaMoverDocumento($this);
         $this->currentWindow()->maximize();
     }
 
     public static function setUpBeforeClass(): void
     {
+        //TODO: Migrar todo o código abaixo para uma classe utilitária de configuração dos testes
         /***************** CONFIGURAÇÃO PRELIMINAR DO ÓRGÃO 1 *****************/
         $parametrosOrgaoA = new ParameterUtils(CONTEXTO_ORGAO_A);
         $parametrosOrgaoA->setParameter('PEN_ID_REPOSITORIO_ORIGEM', CONTEXTO_ORGAO_A_ID_REP_ESTRUTURAS);
@@ -67,19 +73,21 @@ class CenarioBaseTestCase extends Selenium2TestCase
         $bancoOrgaoA->execute("insert into md_pen_unidade(id_unidade, id_unidade_rh) values (?, ?)", array('110000002', CONTEXTO_ORGAO_A_ID_ESTRUTURA_SECUNDARIA));
         // Configuração do prefíxo de processos
         $bancoOrgaoA->execute("update orgao set codigo_sei=? where sigla=?", array(CONTEXTO_ORGAO_A_NUMERO_SEI, CONTEXTO_ORGAO_A_SIGLA_ORGAO));
+        $bancoOrgaoA->execute("update unidade set sin_protocolo=? where sigla=?", array('S', CONTEXTO_ORGAO_A_SIGLA_UNIDADE));
         $bancoOrgaoA->execute("update infra_agendamento_tarefa set parametro='debug=true' where comando='PENAgendamentoRN::processarTarefasPEN'", null);
 
         // Remoção de mapeamento de espécie não mapeada na origem
         $nomeSerieNaoMapeada = utf8_encode(CONTEXTO_ORGAO_A_TIPO_DOCUMENTO_NAO_MAPEADO);
         $serieNaoMapeadaOrigem = $bancoOrgaoA->query('select ID_SERIE from serie where nome = ?', array($nomeSerieNaoMapeada));
         $bancoOrgaoA->execute("delete from md_pen_rel_doc_map_enviado where id_serie = ?", array($serieNaoMapeadaOrigem[0]["ID_SERIE"]));
+
+        // Inserção de mapeamentos de hipóteses legais pra o órgão A
         $bancoOrgaoA->execute("insert into md_pen_rel_hipotese_legal(id_mapeamento, id_hipotese_legal, id_hipotese_legal_pen, tipo, sin_ativo) values (?, ?, ?, ?, ?)", array(1, 3, 3, 'E', 'S'));
         $bancoOrgaoA->execute("insert into md_pen_rel_hipotese_legal(id_mapeamento, id_hipotese_legal, id_hipotese_legal_pen, tipo, sin_ativo) values (?, ?, ?, ?, ?)", array(2, 4, 4, 'E', 'S'));
         $bancoOrgaoA->execute("insert into md_pen_rel_hipotese_legal(id_mapeamento, id_hipotese_legal, id_hipotese_legal_pen, tipo, sin_ativo) values (?, ?, ?, ?, ?)", array(3, 3, 3, 'R', 'S'));
 
         // Habilitação da extensão docx
         $bancoOrgaoA->execute("update arquivo_extensao set sin_ativo=? where extensao=?", array('S', 'docx'));
-
 
         /***************** CONFIGURAÇÃO PRELIMINAR DO ÓRGÃO 2 *****************/
         $parametrosOrgaoB = new ParameterUtils(CONTEXTO_ORGAO_B);
@@ -91,11 +99,15 @@ class CenarioBaseTestCase extends Selenium2TestCase
         $bancoOrgaoB = new DatabaseUtils(CONTEXTO_ORGAO_B);
         $bancoOrgaoB->execute("insert into md_pen_unidade(id_unidade, id_unidade_rh) values ('110000001', ?)", array(CONTEXTO_ORGAO_B_ID_ESTRUTURA));
         $bancoOrgaoB->execute("update orgao set codigo_sei=? where sigla=?", array(CONTEXTO_ORGAO_B_NUMERO_SEI, CONTEXTO_ORGAO_B_SIGLA_ORGAO));
+        $bancoOrgaoB->execute("update unidade set sin_protocolo=? where sigla=?", array('S', CONTEXTO_ORGAO_B_SIGLA_UNIDADE));
         $bancoOrgaoB->execute("update infra_agendamento_tarefa set parametro='debug=true' where comando='PENAgendamentoRN::processarTarefasPEN'", null);
+        $bancoOrgaoB->execute("update infra_parametro set valor = ? where nome = ?", array(50, 'SEI_TAM_MB_DOC_EXTERNO'));
 
         // Remoção de mapeamento de espécie não mapeada na origem
         $nomeSerieNaoMapeada = utf8_encode(CONTEXTO_ORGAO_B_TIPO_DOCUMENTO_NAO_MAPEADO);
         $serieNaoMapeadaOrigem = $bancoOrgaoB->query('select ID_SERIE from serie where nome = ?', array($nomeSerieNaoMapeada));
+
+        // Inserção de mapeamentos de hipóteses legais pra o órgão B
         $bancoOrgaoB->execute("delete from md_pen_rel_doc_map_recebido where id_serie = ?", array($serieNaoMapeadaOrigem[0]["ID_SERIE"]));
         $bancoOrgaoB->execute("insert into md_pen_rel_hipotese_legal(id_mapeamento, id_hipotese_legal, id_hipotese_legal_pen, tipo, sin_ativo) values (?, ?, ?, ?, ?);", array(4, 3, 3, 'E', 'S'));
         $bancoOrgaoB->execute("insert into md_pen_rel_hipotese_legal(id_mapeamento, id_hipotese_legal, id_hipotese_legal_pen, tipo, sin_ativo) values (?, ?, ?, ?, ?);", array(5, 3, 3, 'R', 'S'));
@@ -115,7 +127,14 @@ class CenarioBaseTestCase extends Selenium2TestCase
         $this->setDesiredCapabilities(
             array(
                 'platform' => 'LINUX',
-                'chromeOptions' => array('w3c' => false)
+                'chromeOptions' => array(
+                    'w3c' => false,
+                    'args' => [
+                        '--profile-directory=' . uniqid(),
+                        '--disable-features=TranslateUI',
+                        '--disable-translate',
+                    ],
+                )
             )
         );
     }
@@ -147,6 +166,7 @@ class CenarioBaseTestCase extends Selenium2TestCase
             'LOGIN' => constant($nomeContexto . '_USUARIO_LOGIN'),
             'SENHA' => constant($nomeContexto . '_USUARIO_SENHA'),
             'TIPO_PROCESSO' => constant($nomeContexto . '_TIPO_PROCESSO'),
+            'TIPO_PROCESSO_SIGILOSO' => constant($nomeContexto . '_TIPO_PROCESSO_SIGILOSO'),
             'TIPO_DOCUMENTO' => constant($nomeContexto . '_TIPO_DOCUMENTO'),
             'TIPO_DOCUMENTO_NAO_MAPEADO' => constant($nomeContexto . '_TIPO_DOCUMENTO_NAO_MAPEADO'),
             'CARGO_ASSINATURA' => constant($nomeContexto . '_CARGO_ASSINATURA'),
@@ -158,6 +178,8 @@ class CenarioBaseTestCase extends Selenium2TestCase
             'HIPOTESE_RESTRICAO_NAO_MAPEADO' => constant($nomeContexto . '_HIPOTESE_RESTRICAO_NAO_MAPEADO'),
             'REP_ESTRUTURAS' => constant($nomeContexto . '_REP_ESTRUTURAS'),
             'HIPOTESE_RESTRICAO_PADRAO' => constant($nomeContexto . '_HIPOTESE_RESTRICAO_PADRAO'),
+            'HIPOTESE_RESTRICAO_INATIVA' => constant($nomeContexto . '_HIPOTESE_RESTRICAO_INATIVA'),
+            'HIPOTESE_SIGILOSO' => constant($nomeContexto . '_HIPOTESE_SIGILOSO'),
             'LOCALIZACAO_CERTIFICADO_DIGITAL' => realpath(__DIR__ . constant($nomeContexto . '_LOCALIZACAO_CERTIFICADO_DIGITAL')),
             'SENHA_CERTIFICADO_DIGITAL' => constant($nomeContexto . '_SENHA_CERTIFICADO_DIGITAL'),
             'ID_REP_ESTRUTURAS' => constant($nomeContexto . '_ID_REP_ESTRUTURAS'),
@@ -172,8 +194,14 @@ class CenarioBaseTestCase extends Selenium2TestCase
         PaginaTeste::selecionarUnidadeContexto($this, $siglaUnidade);
     }
 
+    protected function sairSistema()
+    {
+        $this->paginaBase->sairSistema();
+    }
+
     protected function cadastrarProcesso(&$dadosProcesso)
     {
+        $this->paginaBase->navegarParaControleProcesso();
         $protocoloGerado = PaginaIniciarProcesso::gerarProcessoTeste($this, $dadosProcesso);
         $dadosProcesso['PROTOCOLO'] = $protocoloGerado;
         sleep(2);
@@ -182,13 +210,13 @@ class CenarioBaseTestCase extends Selenium2TestCase
 
     protected function abrirProcesso($protocolo)
     {
-        $this->byLinkText("Controle de Processos")->click();
+        $this->paginaBase->navegarParaControleProcesso();
         $this->paginaControleProcesso->abrirProcesso($protocolo);
     }
 
     protected function abrirProcessoPelaDescricao($descricao)
     {
-        $this->byLinkText("Controle de Processos")->click();
+        $this->paginaBase->navegarParaControleProcesso();
         $protocolo = $this->paginaControleProcesso->localizarProcessoPelaDescricao($descricao);
         if($protocolo){
             $this->paginaControleProcesso->abrirProcesso($protocolo);
@@ -222,6 +250,12 @@ class CenarioBaseTestCase extends Selenium2TestCase
         $this->paginaAssinaturaDocumento->assinarComLoginSenha($loginSenha);
         $this->window('');
         sleep(2);
+    }
+
+    protected function anexarProcesso($protocoloProcessoAnexado)
+    {
+        $this->paginaProcesso->navegarParaAnexarProcesso();
+        $this->paginaAnexarProcesso->anexarProcesso($protocoloProcessoAnexado);
     }
 
     protected function tramitarProcessoExternamente($protocolo, $repositorio, $unidadeDestino, $unidadeDestinoHierarquia, $urgente=false, $callbackEnvio=null, $timeout=PEN_WAIT_TIMEOUT)
@@ -331,10 +365,23 @@ class CenarioBaseTestCase extends Selenium2TestCase
         }
     }
 
+    protected function validarDocumentoCancelado($nomeDocArvore)
+    {
+        sleep(2);
+        $this->assertTrue($this->paginaProcesso->ehDocumentoCancelado($nomeDocArvore));
+    }
+
+    protected function validarDocumentoMovido($nomeDocArvore)
+    {
+        sleep(2);
+        $this->assertTrue($this->paginaProcesso->ehDocumentoMovido($nomeDocArvore));
+    }
+
     protected function validarDadosDocumento($nomeDocArvore, $dadosDocumento, $destinatario, $unidadeSecundaria=false, $hipoteseLegal=null)
     {
         sleep(2);
 
+        // Verifica se documento possui marcação de documento anexado
         $bolPossuiDocumentoReferenciado = !is_null($dadosDocumento['ORDEM_DOCUMENTO_REFERENCIADO']);
         $this->assertTrue($this->paginaProcesso->deveSerDocumentoAnexo($bolPossuiDocumentoReferenciado, $nomeDocArvore));
 
