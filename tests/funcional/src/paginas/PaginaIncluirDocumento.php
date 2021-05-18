@@ -75,7 +75,11 @@ class PaginaIncluirDocumento extends PaginaTeste
     public function observacoes($value)
     {
         $input = $this->test->byId("txaObservacoes");
-        return $input->value($value);
+        try{
+            return $input->value($value);
+        }catch(Exception $e){
+            return True;
+        }
     }
 
     public function adicionarInteressado($nomeInteressado)
@@ -164,7 +168,7 @@ class PaginaIncluirDocumento extends PaginaTeste
         $dadosDocumento["DESCRICAO"] = @$dadosDocumento["DESCRICAO"] ?: util::random_string(20);
         $dadosDocumento["DATA_ELABORACAO"] = @$dadosDocumento["DATA_ELABORACAO"] ?: date("d/m/Y");
         $dadosDocumento["FORMATO_DOCUMENTO"] = @$dadosDocumento["FORMATO_DOCUMENTO"] ?: self::STA_FORMATO_NATO_DIGITAL;
-        $dadosDocumento["OBSERVACOES"] = @$dadosDocumento["OBSERVACOES"] ?: util::random_string(50);
+        $dadosDocumento["OBSERVACOES"] = @$dadosDocumento["OBSERVACOES"] ?: util::random_string(100);
         $dadosDocumento["INTERESSADOS"] = @$dadosDocumento["INTERESSADOS"] ?: util::random_string(40);
         $dadosDocumento["RESTRICAO"] = @$dadosDocumento["RESTRICAO"] ?: PaginaIncluirDocumento::STA_NIVEL_ACESSO_PUBLICO;
         $dadosDocumento["HIPOTESE_LEGAL"] = @$dadosDocumento["HIPOTESE_LEGAL"] ?: "";
