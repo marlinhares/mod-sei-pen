@@ -164,7 +164,7 @@ class PaginaIncluirDocumento extends PaginaTeste
         $dadosDocumento["DESCRICAO"] = @$dadosDocumento["DESCRICAO"] ?: util::random_string(20);
         $dadosDocumento["DATA_ELABORACAO"] = @$dadosDocumento["DATA_ELABORACAO"] ?: date("d/m/Y");
         $dadosDocumento["FORMATO_DOCUMENTO"] = @$dadosDocumento["FORMATO_DOCUMENTO"] ?: self::STA_FORMATO_NATO_DIGITAL;
-        $dadosDocumento["OBSERVACOES"] = @$dadosDocumento["OBSERVACOES"] ?: util::random_string(100);
+        $dadosDocumento["OBSERVACOES"] = @$dadosDocumento["OBSERVACOES"] ?: util::random_string(50);
         $dadosDocumento["INTERESSADOS"] = @$dadosDocumento["INTERESSADOS"] ?: util::random_string(40);
         $dadosDocumento["RESTRICAO"] = @$dadosDocumento["RESTRICAO"] ?: PaginaIncluirDocumento::STA_NIVEL_ACESSO_PUBLICO;
         $dadosDocumento["HIPOTESE_LEGAL"] = @$dadosDocumento["HIPOTESE_LEGAL"] ?: "";
