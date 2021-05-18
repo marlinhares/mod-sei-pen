@@ -96,7 +96,7 @@ class PaginaIniciarProcesso extends PaginaTeste
                 $input = $this->test->byId("txtInteressadoProcedimento");
                 $input->value($nomeInteressado);
                 sleep(10); 
-                echo "Aqui"; die;
+                
                 $this->test->keys(Keys::ENTER);
                 sleep(10);
                 $this->test->acceptAlert();
